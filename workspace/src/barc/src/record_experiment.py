@@ -37,9 +37,12 @@ class RecordExperiment():
         # get parameters
         self.experiment_name     = rospy.get_param("/record_experiment/experiment_name")
         self.camera_on           = rospy.get_param("/record_experiment/camera_on")
-
+	##############################################
+	#rospy.logdebug('waiting for send_data service')
         # wait for ROS services
         rospy.wait_for_service('send_data')
+	#############################################
+	#rospy.logdebug('succesfully waited for service send_data')
         rospy.wait_for_service('register_video')
 
         # resigter proxy service
@@ -61,7 +64,10 @@ class RecordExperiment():
             os.makedirs(image_dir)
          
         # start rosrecord for following topics
-        self.topics = ['/imu/data', '/encoder', '/ecu', '/ecu_pwm', '/image_transformed/compressed/', '/fix']
+	######################################################
+	#rospy.logdebug('about to start record here: ' + self.rosbag_file_path)
+        
+	self.topics = ['/imu/data', '/encoder', '/ecu', '/ecu_pwm', '/image_transformed/compressed/', '/fix']
         self.rosbag_file_path = os.path.abspath(rosbag_dir + '/' + self.experiment_name + '.bag')
         self.start_record_data()
         
@@ -247,7 +253,7 @@ class RecordExperiment():
 
 if __name__ == '__main__':
     # initialize the node
-    rospy.init_node('record_experiment')
+    rospy.init_node('record_experiment', log_level=rospy.DEBUG)
 
     try:
         node = RecordExperiment()

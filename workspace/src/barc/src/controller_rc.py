@@ -42,12 +42,13 @@ def main_auto():
     dt = 1.0/rateHz
     rate = Rate(rateHz)
 
-    throttle = 90
-    steering = 90
+    throttle = 1500
+    steering = 1500
 
     # main loop
     while not is_shutdown():
         ecu_cmd = ECU(throttle, steering)
+        rospy.loginfo(str(ecu_cmd.motor) + " " + str(ecu_cmd.servo))
         nh.publish(ecu_cmd)
         rate.sleep()
 

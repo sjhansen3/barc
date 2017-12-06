@@ -17,8 +17,10 @@
 #include <ros.h>
 #include <barc/Encoder.h>
 #include <barc/ECU.h>
+#include <barc/Ultrasound.h>
 #include <Servo.h>
 #include <EnableInterrupt.h>
+#include "Maxbotix.h"
 
 /**************************************************************************
 CAR CLASS DEFINITION (would like to refactor into car.cpp and car.h but can't figure out arduino build process so far)
@@ -159,12 +161,28 @@ volatile unsigned long ecu_t0;
 barc::ECU ecu;
 barc::ECU rc_inputs;
 barc::Encoder encoder;
+barc::Ultrasound ultrasound;
 
 ros::NodeHandle nh;
 
 ros::Publisher pub_encoder("encoder", &encoder);
 ros::Publisher pub_rc_inputs("rc_inputs", &rc_inputs);
+ros::Publisher pub_ultrasound("ultrasound", &ultrasound);
 ros::Subscriber<barc::ECU> sub_ecu("ecu_pwm", ecuCallback);
+
+// Set up ultrasound sensors
+
+// PW = pulse width modulation
+// LV not sure
+int ultrasound_pin = 12;   // check which arduino pins support PWM
+// create a sonar sensor object named us_fr
+// three arguments: pin number, communication style (e.g. PWM, TX RX, Analog), ???
+// optional fouth argument: filter type (e.g. BEST, MEDIAN)
+Maxbotix us_fr(ultrasound_pin, Maxbotix::PW, Maxbotix::LV); // front
+
+// use a type of filter on the data you receive
+//Maxbotix rangeSensorPW(8, Maxbotix::PW, Maxbotix::LV, Maxbotix::BEST);
+//Maxbotix rangeSensorTX(6, Maxbotix::TX, Maxbotix::LV, Maxbotix::MEDIAN);
 
 /**************************************************************************
 ARDUINO INITIALIZATION
@@ -182,6 +200,7 @@ void setup()
   // Publish and subscribe to topics
   nh.advertise(pub_encoder);
   nh.advertise(pub_rc_inputs);
+  nh.advertise(pub_ultrasound);
   nh.subscribe(sub_ecu);
 
   // Arming ESC, 1 sec delay for arming and ROS
@@ -210,6 +229,7 @@ void loop() {
   }
 
   if (dt > 50) {
+    // get encoder readings
     car.readAndCopyInputs();
     encoder.FL = car.getEncoderFL();
     encoder.FR = car.getEncoderFR();
@@ -217,9 +237,17 @@ void loop() {
     encoder.BR = car.getEncoderBR();
     pub_encoder.publish(&encoder);
 
+    // get servo / motor commands
     rc_inputs.motor = car.getRCThrottle();
     rc_inputs.servo = car.getRCSteering();
     pub_rc_inputs.publish(&rc_inputs);
+
+    // get ultrasound readings
+    ultrasound.front = us_fr.getRange();
+    //ultrasound.back = us_bk.getRange();
+    //ultrasound.right = us_rt.getRange();
+    //ultrasound.left = us_lf.getRange();
+    pub_ultrasound.publish(&ultrasound);
 
     t0 = millis();
   }

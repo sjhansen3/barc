@@ -26,7 +26,7 @@ import rospy
 import time
 
 motor_pwm = 1500
-servo_pwm = 1600
+servo_pwm = 1540
 
 def arduino_interface():
     global ecu_pub, motor_pwm, servo_pwm
@@ -41,18 +41,18 @@ def arduino_interface():
     ecu_pub = Publisher('ecu_pwm', ECU, queue_size = 10)
     
     motor_pwm = 1500
-    servo_pwm = 1600
+    servo_pwm = 1540
     flag = 0
 
     while not rospy.is_shutdown():
         
         if time.time()-time_prev>=12:
-            servo_pwm = 1600; #reset to straight ahead
+            servo_pwm = 1540; #reset to straight ahead
             ecu_cmd = ECU(motor_pwm, servo_pwm)
             ecu_pub.publish(ecu_cmd)
             break
         elif time.time()-time_prev >=7:
-            servo_pwm = 1625; #send new steering angle command: [1450, 1500, 1575, 1625, 1700,1750]
+            servo_pwm = 1390; #send new steering angle command: [1390, 1440, 1515, 1565, 1640,1690]
 
 
         ecu_cmd = ECU(motor_pwm, servo_pwm)

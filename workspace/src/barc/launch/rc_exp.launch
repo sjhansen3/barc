@@ -1,0 +1,7 @@
+<launch>
+	<arg name="id" />
+	<node pkg="barc" type="Team3record_experiment.py" name="record_experiment" output="screen">
+		<param name="camera_on" value="False" />
+	</node>
+
+</launch>

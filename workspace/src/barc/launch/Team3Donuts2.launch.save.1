@@ -1,0 +1,13 @@
+<launch>
+
+	<!-- CONTROLLER -->
+	<node pkg="barc" type="controller_circular.py" name="auto_mode" >
+		<param name="controller/rate" value="1" />
+		<param name="controller/t_0" value="0" />
+		<param name="controller/t_f" value="60" />
+		<param name="controller/FxR_target" value="50" />
+		<param name="controller/d_f_target" value="" />
+	</node>
+
+
+</launch>

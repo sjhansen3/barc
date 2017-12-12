@@ -12,4 +12,6 @@
     (:file "_package_Ultrasound" :depends-on ("_package"))
     (:file "Z_KinBkMdl" :depends-on ("_package_Z_KinBkMdl"))
     (:file "_package_Z_KinBkMdl" :depends-on ("_package"))
+    (:file "obj_offset" :depends-on ("_package_obj_offset"))
+    (:file "_package_obj_offset" :depends-on ("_package"))
   ))

@@ -1,0 +1,85 @@
+import rospy
+from barc.msg import ultrasound
+
+class State():
+	def __init__(self):
+		self.state_pub = rospy.Publisher('state', state, queue_size = 10)
+		self.us_first_run = 1
+		self.enc_first_run = 1
+		self.vel = 0
+		
+		self.prev_time = 0
+		self.prev_encoder = 0
+		
+		self.prev_us_time = 0
+		self.us_dist = 0	# meters
+		self.us_rate = 0	# m/s
+		self.us_accl = 0	# m/s^2
+		
+		self.ROS_RATE = 10	#Hz
+		self.RADIUS = .05	#meters
+
+	def run(self):
+		rospy.init_node('state', anonymous=True)
+		rospy.Subscriber('ultrasound', ultrasound, self.us_callback)
+		rospy.Subscriber('encoder', Encoder, self.car_vel_callback)
+		rate = rospy.Rate(self.ROS_RATE)
+		
+		while not rospy.is_shutdown()
+			state_msg = get_state()
+			self.state_pub.publish(state_msg)
+			rate.sleep()
+	
+
+	def us_callback(self, us_data):
+		curr_time = rospy.get_time()
+		delta_time = curr_time - self.us_prev_time
+		
+		# uses curve fit to find distance from the ultrasound value
+		distance = 0.01103*us_data.front + 0.04001
+		# take derivatives to find rate of us distance change
+		rate = (distance - self.us_dist) / delta_time
+		accl = (rate - self.us_rate) / delta_time
+
+		# prevents initial spike
+		if self.us_first_run == 1:
+			self.us_dist = distance
+			self.us_rate = 0
+			self.us_accl = 0
+			self.us_first_run = 0
+		
+		self.us_prev_time = curr_time
+		self.us_dist = distance
+
+
+
+
+	def car_vel_callback(self, encoder_data):
+		""" Estimate and update the velocity of the car for subscribing to encoder
+			@Param encoder_data: data from the Encoder of type Encoder. Contains the counts since the last call		
+		"""
+		curr_time = rospy.get_time()
+		delta_time = curr_time - self.prev_time
+		
+		avg_enc = (encoder_data.FL + encoder_data.FR)/2.0
+			
+		# prevents initial spike if encoder doesn't start out as 0
+		if self.enc_first_run == 1:
+			self.prev_encoder = avg_enc
+			self.enc_first_run = 0
+		else:
+			# convert counts to velocity
+			counts_per_second = (avg_enc - self.prev_encoder)/delta_time
+			curr_vel = (counts_per_second/8.0)*(2*math.pi*self.	RADIUS)
+		
+		# sets member variables
+		self.prev_time = curr_time
+		self.prev_encoder = avg_enc
+		self.car_vel = curr_vel 
+
+if __name__ == '__main__':
+    try:
+		state = State()
+		state.run()
+    except rospy.ROSInterruptException:
+        pass

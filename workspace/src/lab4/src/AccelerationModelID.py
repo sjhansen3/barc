@@ -42,13 +42,13 @@ def arduino_interface():
 
     while not rospy.is_shutdown():
 		if time.time() >= time_prev and time.time() < time_prev + 3: 
-			motor_pwm = 1200
+			motor_pwm = 1580
 		if time.time() >= time_prev + 4 and time.time() < time_prev + 6: 
-			motor_pwm = 1200
+			motor_pwm = 1580
 		if time.time() >= time_prev + 6 and time.time() < time_prev + 9:
-			motor_pwm = 1200
+			motor_pwm = 1580
 		if time.time() >= time_prev + 8 and time.time() < time_prev + 12:
-			motor_pwm = 1200
+			motor_pwm = 1580
 		if time.time() >= time_prev + 15:
 			break
         # if time.time() >= time_prev and time.time() < time_prev + 4: 

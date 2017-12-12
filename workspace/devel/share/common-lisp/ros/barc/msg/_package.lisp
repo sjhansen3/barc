@@ -9,5 +9,7 @@
    "ULTRASOUND"
    "<Z_KINBKMDL>"
    "Z_KINBKMDL"
+   "<OBJ_OFFSET>"
+   "OBJ_OFFSET"
   ))
 

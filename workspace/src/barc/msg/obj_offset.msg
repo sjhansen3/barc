@@ -1,0 +1,3 @@
+float32 pixel_center_offset
+float32 est_dist
+float32 est_center_offset

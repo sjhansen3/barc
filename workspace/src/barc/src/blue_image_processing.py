@@ -4,6 +4,7 @@ import sys
 import rospy
 import cv2
 from std_msgs.msg import String, Int32, Float32
+from barc.msg import obj_offset
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 import numpy as np
@@ -92,7 +93,7 @@ class image_processor:
         global calibration_pts
 
         #Create ROS Interfaces
-        self.offset_lane_pub = rospy.Publisher("lane_offset", Float32,queue_size=10)
+        self.obj_offset_pub = rospy.Publisher("obj_offset", obj_offset,queue_size=10)
         self.cvfail_pub = rospy.Publisher("cv_abort", Int32, queue_size=10)
        
         self.image_pub = rospy.Publisher("cv_image", Image, queue_size = 10)
@@ -163,9 +164,12 @@ class image_processor:
         desired_color = np.uint8([[[255,0,0]]])
         hsv_color = cv2.cvtColor(desired_color,cv2.COLOR_BGR2HSV)
         gray_image = cv2.cvtColor(cv_image,cv2.COLOR_BGR2HSV)
+#	rospy.loginfo("CENTER COLOR IS: %s" % str(gray_image[rows//2,cols//2]))
         # Create a blue color mask
         lower_blue = np.array([hsv_color[0][0][0]-20,150,100])
         upper_blue = np.array([hsv_color[0][0][0]+20,255,255])
+        lower_blue = np.array([80,150,100])
+        upper_blue = np.array([120,255,255])
         mask = cv2.inRange(gray_image,lower_blue,upper_blue)
         mask = cv2.erode(mask, None, iterations=2)
         # Mask the original image to get pixels only in that range
@@ -174,25 +178,56 @@ class image_processor:
         gray_image = res
         cnts = cv2.findContours(mask.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[-2]
         center = None
-        
+        offset_from_center = None
+        focal_length = 500.0 # Experimentially determined focal length
+        object_width = .0762 # meters, 3 inch diameter blue cylinder
+        est_dist = 0.0
+        est_center_offset = 0.0
+        pixel_center_offset = 0.0
+
+        # If there is a contour/rectangle we found
         if len(cnts) > 0:
+            # Create rectangle from the largest contour
             c = max(cnts, key=cv2.contourArea)
             rect = cv2.minAreaRect(c)
             # rect = ((center(x,y), (width,height), angle of rotation)
+            
+            # Find center, width, and height of the rectangle
             center_x, center_y = rect[0]
-            width,height = rect[1]
-            rospy.loginfo(str(rect[1]))
-            if width > 100:
-                
+            # Width and height are determined for an object that is TALLER than it is WIDE
+            # This helps remove the rotation error
+            width = min(rect[1])
+            height = max(rect[1])
+            
+            # Log the center position info to screen
+            #rospy.loginfo(str(rect[0]))
+
+            # If the width of our object above a threshold
+            if width > 5:
+                # Create a box and draw to screen
                 box = cv2.boxPoints(rect)
                 box = np.int0(box)
-                cv2.drawContours(gray_image,[box],0,(0,0,255),2)
+                # Populate text with valuable information
                 center = (int(rect[0][0]),int(rect[0][1]))
-                cv2.circle(gray_image,center,3,(0,255,255),-1)
-                cv2.putText(gray_image,"center: %s" % str(center),(center[0],center[1]+10),cv2.FONT_HERSHEY_SIMPLEX, .5,(255,255,255))
+                # Identify the offset amount in pixels, assign to var, and write to screen
+                offset_from_center = (center[0]-cols//2, center[1]-rows//2)
+                pixel_center_offset = offset_from_center[0]
+                # rectangle centroid distance from center (X,Y), (+Right/-Left,-UP/+DOWN)
+                
+                # Process the values to get distance estimations
+                est_dist = focal_length * object_width / width
+                est_center_offset = pixel_center_offset * object_width / width
+                if display_image:
+                    cv2.drawContours(gray_image,[box],0,(0,0,255),2)
+                    cv2.circle(gray_image,center,3,(0,255,255),-1)
+                    cv2.putText(gray_image,"center: %s" % str(center),(center[0],center[1]+10),cv2.FONT_HERSHEY_SIMPLEX, .5,(255,255,255))
+                    cv2.putText(gray_image,"Width, Height: %s" % str((int(rect[1][0]),int(rect[1][1]))),(center[0],center[1]+30),cv2.FONT_HERSHEY_SIMPLEX,.5,(255,255,255))
+                    cv2.putText(gray_image,"center_offset: %s" % str(offset_from_center),(center[0],center[1]+50),cv2.FONT_HERSHEY_SIMPLEX,.5,(255,255,255))
+                    cv2.putText(gray_image,"est_dist, est_off: %s" % str(("%.2f" % est_dist,"%.2f" % est_center_offset)),(center[0],center[1]+70),cv2.FONT_HERSHEY_SIMPLEX,.5,(255,255,255))
+                    cv2.imshow("Blue image", gray_image)
+                    cv2.waitKey(3)
+            self.obj_offset_pub.publish(obj_offset(pixel_center_offset,est_dist,est_center_offset))
 
-        cv2.imshow("Blue image", gray_image)
-        cv2.waitKey(3)
         
 
 

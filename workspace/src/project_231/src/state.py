@@ -23,7 +23,7 @@ class CarState():
 		
 		self.obj_psi = 0 # object meters offset from centerline
 		
-		self.ROS_RATE = 1	#Hz
+		self.ROS_RATE = 10	#Hz
 		self.RADIUS = .05	#meters
 
 	def run(self):

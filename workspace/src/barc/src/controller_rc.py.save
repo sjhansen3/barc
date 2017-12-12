@@ -26,10 +26,9 @@ import rospy
 import random
 
 def rc_inputs_callback(data):
-#    global throttle, steering
-#    throttle = data.motor
-#    steering = data.servo
-    pass
+    global throttle, stering
+    throttle = data.motor
+    steering = data.servo
 
 def main_auto():
     global throttle, steering
@@ -44,32 +43,17 @@ def main_auto():
     dt = 1.0/rateHz
     rate = Rate(rateHz)
 
-    throttle = 1500.0
-    steering = 1500.0
-    flip = 1
+    throttle = 1500
+    steering = 1500
 
-    PWM_count = 0
-    HIGHPWM = 2000.0
-    LOWPWM = 1000.0
-    PWM_array = [1500.0, 1550.0, 1600, 1650, 1700, 1750, 1800, 1850, 1900, 1950]
     # main loop
+    counter = 0
     while not is_shutdown():
-        #if PWM_count < #len(PWM_array):
-        #    throttle = flip*1000.0 + throttle#PWM_array[PWM_count]
-        #    if throttle >= 2000:
-        #        flip = -1
-        #    elif throttle <= 1000:
-                
-        #    PWM_count = PWM_count + 1
-        #else:
-        #    throttle -= 4
-        #    if throttle < 1400.0:
-        #        throttle = 1400.0
-        #throttle -= 4
-        if throttle < 1400.0:
-            throttle = 1400.0
-        for i in range(0,8):
-            ecu_cmd = ECU(throttle, steering)
+        throttle -= 1
+        if throttle < 1400:
+            throttle = 1400
+	for i in range(0,4):
+	    ecu_cmd = ECU(throttle, steering)
             rospy.loginfo(str(ecu_cmd.motor) + " " + str(ecu_cmd.servo))
             nh.publish(ecu_cmd)
             rate.sleep()

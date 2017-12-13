@@ -1,35 +1,23 @@
 #!/usr/bin/env julia
-#loginfo("Loading RobotOS")
+
 using JuMP
-loginfo("Loading Ipopt")
 using Ipopt
-loginfo("Loading ros stuff")
-loginfo("Generating types")
-loginfo("Declaring message types")
-using barc.msg
-using data_service.msg
-using project_231.msg
-loginfo("Loading COMPLETE")
-###########################################
+using PyPlot
 
+#function solve_ftoc(vel0,rel_d0,rel_vel0,rel_psi0)
+    #vel0 - msg.car_vel
+    #rel_d0 - msg.us_dist
+    #rel_vel0 - msg.us_rate
+    #rel_psi0 - msg.obj_psi
 
-###### DEBUG SAFETY LIMITS #####
-dbg = 1
-###########################################
-
-###########################################
 ####### CAR PARAMETERS
 L_a             = 0.125         # distance from CoG to front axel
 L_b             = 0.125         # distance from CoG to rear axel
 dt              = 0.1           # time step of system
 a_max           = 1             # maximum acceleration
-N               = 5             # MPC Solution Horizon
-desired_dist    = .5           # Desired following distance in meters
+N               = 9             # MPC Solution Horizon
+desired_dist    = 1           # Desired following distance in meters
 ###########################################
-
-###########################################
-# CREATE MODEL
-loginfo("Initializing Model!")
 mdl = Model(solver = IpoptSolver())
 
 # Create our optimal state variable
@@ -58,116 +46,124 @@ for i = 1:N
     # add constraints (dynamics)
     @NLconstraint(mdl, vel[i+1]     == vel[i]     + dt * a[i]                   )
     @NLconstraint(mdl, rel_d[i+1]   == rel_d[i]   + rel_vel[i] * dt             )
-    @NLconstraint(mdl, rel_vel[i+1] == rel_vel[i] + (vel[i] - a[i] * dt)        )
+    @NLconstraint(mdl, rel_vel[i+1] == rel_vel[i] + (-a[i] * dt)        )
     @NLconstraint(mdl, rel_psi[i+1] == rel_psi[i] + dt * (vel[i]/L_b * sin(bta[i]) ) )
     #end dynamics
     @constraint(mdl, -a_max <= a[i] <= a_max)
 end
 
 # Add objective
-@NLobjective(mdl, Min, (rel_d[1]-desired_dist)^2 + (rel_d[2]-desired_dist)^2 + (rel_d[3]-desired_dist)^2 + (rel_d[4]-desired_dist)^2 + (rel_d[5]-desired_dist)^2)#brute force #sum(obj))	#instead of summing the array at the end, just summing in the for loop
+@NLobjective(mdl, Min, sum(100*(rel_d[i]-desired_dist)^2+ a[i]^2 for i=1:N))
+#@NLobjective(mdl, Min, (rel_d[1]-desired_dist)^2 + (rel_d[2]-desired_dist)^2 + (rel_d[3]-desired_dist)^2 + (rel_d[4]-desired_dist)^2 + (rel_d[5]-desired_dist)^2)#brute force #sum(obj))	#instead of summing the array at the end, just summing in the for loop
 ###########################################
 
 ###########################################
 # SOLVE INITIAL MPC
-# making ipopt quiet
-loginfo("Model Creation complete, starting initial solve!")
-#TT = STDOUT
-#redirect_stdout()
-solve(mdl)
-#redirect_stdout(TT)
+# making ipopt pt
+#loginfo("Model Creation complete, starting initial solve!")
 
-a_sol = getvalue(a[1])
-d_fsol = getvalue(d_f[1])
-loginfo("INITIAL Solution Found")
-###########################################
-
-###########################################
-# Update states with callback function
-function sub_callback(msg::State) 
-    # Updates the MPC initial values here
-    #loginfo("CALLBACK SUCCESS")
-    #loginfo(@sprintf("CALLBACK:\t%.3f\t%.3f\t%.3f\t%.3f", msg.car_vel, msg.us_dist, msg.us_rate, msg.obj_psi))
-
-    setvalue(vel0, msg.car_vel)
-    setvalue(rel_d0, msg.us_dist)
-    setvalue(rel_vel0, msg.us_rate)
-    setvalue(rel_psi0, msg.obj_psi)
-end
-###########################################
+#plan = Dict("acc"=>a_sol, "steer"=>d_fsol, "follow_distance"=>rel_d_sol,"v_sol"=>v_sol)
+#return plan
+#end
 
 ###########################################
 # MAIN LOOP FUNCTION
 function main()
-    loginfo("############## Initializing node... ##########")
-    init_node("MPC_Solver")
-	loop_rate = Rate(10) # Hz
-    pub = Publisher{ECU}("ecu_pwm", queue_size = 1)
-    sub = Subscriber("state", State, sub_callback, queue_size = 10)
-	loginfo("############## NODE INITIALIZED ##############")
-    while ! is_shutdown()
-        # Debug to find if our state is updating...
-		us_dist = getvalue(rel_d0)
-        rel_vel = getvalue(rel_vel0)
-        #loginfo("US DISTANCE: " * string(getvalue(rel_d0)))
+    #vel0 - msg.car_vel
+    #rel_d0 - msg.us_dist
+    #rel_vel0 - msg.us_rate
+    #rel_psi0 - msg.obj_psi
+    num = 250
+    accelerations = zeros(num)
+    steering = zeros(num)
+    follow_distance = zeros(num)
+    velocities = zeros(num)
+    predicted_follow_distance = zeros(num)
+    predicted_velocities = zeros(num)
 
-        # making ipopt quiet
+    dt = 0.1
+    idx = 1
+
+    car_vel = 0        #my velocity
+    us_dist = 1      #my distance
+    us_rate = 0    #the rate of change between me and the other car
+    obj_psi = 0    #rate of change between me and the other car
+    while idx <=num
+        #print("velocity before plan: ",vel0)
+        #plan = solve_ftoc(vel0,rel_d0,rel_vel0,rel_psi0)
+        setvalue(vel0, car_vel)
+        setvalue(rel_d0, us_dist)
+        setvalue(rel_vel0, us_rate)
+        setvalue(rel_psi0, obj_psi)
+
+        #####Solve
         TT = STDOUT
         redirect_stdout()
-        status = solve(mdl) # SOLVE MPC
+        solve(mdl)
         redirect_stdout(TT)
 
-        # Get the optimal inputs
-        if status == :Optimal
-            loginfo("OPTIMAL SOLUTION FOUND")
-            a_sol  = getvalue( a[1]   )
-            d_fsol = getvalue( d_f[1] )
-        else
-            loginfo("SOLUTION IS NONOPTIMAL")
-            a_sol  = 0.0
-            d_fsol = 0.0
-        end
+        #####Get_values
+        a_sol = getvalue(a)
+        d_fsol = getvalue(d_f)
+        v_sol = getvalue(vel)
+        rel_d_sol = getvalue(rel_d)
         
-        # Adjust output to PWMs using system ID values
-		if a_sol > 0
-			motor_pwm = (a_sol-0.1570*getvalue(vel0))/0.003050+1500
-			#use acceleration model
-		else
-			motor_pwm = (a_sol-0.1064*getvalue(vel0))/0.003297+1500
-			#use deceleration model
-		end
-		
-		servo_pwm = (d_fsol - 1.3784)/-0.00089358 # relationship in radians			(steer-0.4919)/(-3.1882*10^-4)
-		
-
-        ######### PRINTOUT FOR DEBUG #######
-        loginfo(@sprintf("US: %.3f\t rel_vel; %.3f\t MOTOR: %.3f \tSERVO: %.3f\ta_sol: %.3f\td_fsol: %.3f", us_dist, rel_vel, motor_pwm, servo_pwm, a_sol, d_fsol)) #"a_sol: " * string(a_sol) * "\td_fsol: " * string(d_fsol))
-        #loginfo(#"MOTOR: " * string(motor_pwm) * "\tSERVO: " * string(servo_pwm))
+        accl_cmd = a_sol[1]
+        #steer_cmd = rel_d_sol[1]
         
-        ######### SAFETY LIMITS FOR TESTING #######
-        if dbg == 1
-            if motor_pwm > 1580
-                motor_pwm = 1580
-            end
-            
-            if motor_pwm < 1200
-                motor_pwm = 1200
-            end
-        
-            if servo_pwm > 1600
-                servo_pwm = 1600
-            end
+        accelerations[idx] = accl_cmd
+        #steering[idx] = steer_cmd
 
-            if servo_pwm < 1400
-                servo_pwm = 1400
-            end
-        end
+        predicted_velocities[idx] = v_sol[1]
+        predicted_follow_distance[idx] = rel_d_sol[1]
+        #println("velocity after plan before propigate",vel0)
+        us_rate, us_dist, car_vel = propigate_states(car_vel,us_dist, accl_cmd,dt)
 
-        # Cast the command to ECU message
-		cmd = ECU(motor_pwm,servo_pwm)
-		publish(pub, cmd) # PUBLISH ECU COMMAND
-        rossleep(loop_rate)
+        #println("velocity after propigate",vel0)
+        velocities[idx] = car_vel
+        follow_distance[idx] = us_dist
+
+        idx +=1
     end
+
+    t = linspace(dt,dt*num,num)
+    #println("actual follow_distance: ",follow_distance)
+    #println("steer: ",steering)
+    #println("acc: ",accelerations)
+    #println("actual vel: ",velocities)
+    #figure()
+    #println(size(t),size(steering))
+    #plot(t,steering, "b.")
+    #figure()
+
+    ax1=subplot(311)        
+    plot(t,follow_distance, "b:")
+    plot(t,predicted_follow_distance, "r-")
+    legend(["actual follow dist", "predicted follow dist"])
+    
+    ax1=subplot(312,sharex=ax1)        
+    plot(t,velocities, "b:")
+    plot(t,predicted_velocities, "r-")
+    legend(["actual vel","MPC predicted vel"])
+   
+    ax1=subplot(313,sharex=ax1)    
+    plot(t,accelerations, "r:")
+    title("Accleration commands")
+    show()
+    #legend(["","follow_distance","velocities","accelerations"])
+end
+
+function propigate_states(prev_vel,prev_usdist, accl_cmd,dt)
+    #println("acceleration",accl_cmd,"prev_vel",prev_vel)    
+    car_vel = prev_vel+accl_cmd*dt
+    obj_vel = 1 #assume constant 1 m/s velocity of other car
+    obj_acc = 0 #no acceleration
+
+    us_rate = obj_vel-car_vel #negative moving towards the other car
+    us_dist = 0.5*(obj_acc-accl_cmd)*dt^2+us_rate*dt+prev_usdist
+    
+    #println("post_vel",car_vel)
+    return (us_rate, us_dist, car_vel)
 end
 
 if ! isinteractive()

@@ -65,3 +65,5 @@ controller.py
 Dator/db.sqlite3
 workspace/src/barc/rosbag/
 *.ropeproject/
+workspace/devel/*
+

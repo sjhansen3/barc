@@ -1,0 +1,13 @@
+<launch>
+    <arg name="id" />
+
+	<!-- RECORD -->
+    <node pkg="project_231" type="mpc_record.py" name="record_experiment" output="screen">
+        <param name="experiment_name" value="$(arg id)" /> 
+        <param name="camera_on" value="True" />
+    </node>
+
+	<node pkg="project_231" type="MPC_Tracking.jl" name="mpc_solver" output="screen">
+    </node>
+
+</launch>

@@ -28,9 +28,11 @@ dbg = 1
 L_a             = 0.125         # distance from CoG to front axel
 L_b             = 0.125         # distance from CoG to rear axel
 dt              = 0.1           # time step of system
-a_max           = 1             # maximum acceleration
+a_max           = 0.5             # maximum acceleration
+a_min           = -1.0
 N               = 5             # MPC Solution Horizon
 desired_dist    = .5           # Desired following distance in meters
+u_cost          = 0.05
 ###########################################
 
 ###########################################
@@ -54,24 +56,26 @@ mdl = Model(solver = IpoptSolver())
 # updated because it is a constraint on the variable, which is updated with
 # the state callback function
 @NLparameter(mdl, vel0     == 0 ); @NLconstraint(mdl, vel[1]     == vel0    );
-@NLparameter(mdl, rel_d0   == 1 ); @NLconstraint(mdl, rel_d[1]   == rel_d0  );
-@NLparameter(mdl, rel_vel0 == 1 ); @NLconstraint(mdl, rel_vel[1] == rel_vel0);
+@NLparameter(mdl, rel_d0   == 0 ); @NLconstraint(mdl, rel_d[1]   == rel_d0  );
+@NLparameter(mdl, rel_vel0 == 0 ); @NLconstraint(mdl, rel_vel[1] == rel_vel0);
 @NLparameter(mdl, rel_psi0 == 0 ); @NLconstraint(mdl, rel_psi[1] == rel_psi0);
 @NLexpression(mdl, bta[i = 1:N], atan( L_a / (L_a + L_b) * tan(d_f[i]) ) )
 
 # Add constraints for each timestep
 for i = 1:N
     # add constraints (dynamics)
+    # velocity should always be positive
+    @NLconstraint(mdl, vel[i+1]     >= 0                                        )
     @NLconstraint(mdl, vel[i+1]     == vel[i]     + dt * a[i]                   )
     @NLconstraint(mdl, rel_d[i+1]   == rel_d[i]   + rel_vel[i] * dt             )
-    @NLconstraint(mdl, rel_vel[i+1] == rel_vel[i] + (vel[i] - a[i] * dt)        )
+    @NLconstraint(mdl, rel_vel[i+1] == rel_vel[i] + (vel[i] - a[i] * dt)        ) #rel_vel[i] + (vel[i] - a[i] * dt)        )
     @NLconstraint(mdl, rel_psi[i+1] == rel_psi[i] + dt * (vel[i]/L_b * sin(bta[i]) ) )
     #end dynamics
-    @constraint(mdl, -a_max <= a[i] <= a_max)
+    @constraint(mdl, a_min <= a[i] <= a_max)
 end
 
-# Add objective
-@NLobjective(mdl, Min, (rel_d[1]-desired_dist)^2 + (rel_d[2]-desired_dist)^2 + (rel_d[3]-desired_dist)^2 + (rel_d[4]-desired_dist)^2 + (rel_d[5]-desired_dist)^2)#brute force #sum(obj))	#instead of summing the array at the end, just summing in the for loop
+# Add objective	
+@NLobjective(mdl, Min, (rel_d[1]-desired_dist)^2 + (rel_d[2]-desired_dist)^2 + (rel_d[3]-desired_dist)^2 + (rel_d[4]-desired_dist)^2 + (rel_d[5]-desired_dist)^2 + u_cost *( a[1]^2 + a[2]^2 + a[3]^2 + a[4]^2 +a[5]^2))
 ###########################################
 
 ###########################################
@@ -125,7 +129,7 @@ function main()
 
         # Get the optimal inputs
         if status == :Optimal
-            loginfo("OPTIMAL SOLUTION FOUND")
+            #loginfo("OPTIMAL SOLUTION FOUND")
             a_sol  = getvalue( a[1]   )
             d_fsol = getvalue( d_f[1] )
         else
@@ -140,24 +144,24 @@ function main()
 			#use acceleration model
 		else
 			motor_pwm = (a_sol-0.1064*getvalue(vel0))/0.003297+1500
-			#use deceleration model
+			#motor_pwm = motor_pwm*0.15 #use deceleration model
 		end
 		
 		servo_pwm = (d_fsol - 1.3784)/-0.00089358 # relationship in radians			(steer-0.4919)/(-3.1882*10^-4)
 		
 
         ######### PRINTOUT FOR DEBUG #######
-        loginfo(@sprintf("US: %.3f\t rel_vel; %.3f\t MOTOR: %.3f \tSERVO: %.3f\ta_sol: %.3f\td_fsol: %.3f", us_dist, rel_vel, motor_pwm, servo_pwm, a_sol, d_fsol)) #"a_sol: " * string(a_sol) * "\td_fsol: " * string(d_fsol))
+        loginfo(@sprintf("US: %+.3f\t  rel_vel: %+.3f\t MOTOR: %.3f \tSERVO: %.3f\ta_sol: %+.3f\td_fsol: %+.3f", us_dist, rel_vel, motor_pwm, servo_pwm, a_sol, d_fsol)) #"a_sol: " * string(a_sol) * "\td_fsol: " * string(d_fsol))
         #loginfo(#"MOTOR: " * string(motor_pwm) * "\tSERVO: " * string(servo_pwm))
         
         ######### SAFETY LIMITS FOR TESTING #######
         if dbg == 1
-            if motor_pwm > 1580
-                motor_pwm = 1580
+            if motor_pwm > 1620
+                motor_pwm = 1620
             end
             
-            if motor_pwm < 1200
-                motor_pwm = 1200
+            if motor_pwm < 1000
+                motor_pwm = 1000
             end
         
             if servo_pwm > 1600

@@ -97,7 +97,7 @@ class Car {
     uint16_t steeringIn = 1500;
  
     // motor / servo neutral state (milliseconds)
-    float throttle_neutral_ms = 1500.0;
+    float throttle_neutral_ms = 1480.0;
     float servo_neutral_ms = 1500.0;
 
     // Number of encoder counts on tires

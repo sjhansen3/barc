@@ -1,7 +1,7 @@
 <launch>
     <arg name="id" />
 
-	<include file="$(find data_service)/launch/service.launch" />
+	<!-- include file="$(find data_service)/launch/service.launch" / -->
 
 
 	<!-- ARDUINO -->

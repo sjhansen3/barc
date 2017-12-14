@@ -28,9 +28,14 @@ dbg = 1
 L_a             = 0.125         # distance from CoG to front axel
 L_b             = 0.125         # distance from CoG to rear axel
 dt              = 0.1           # time step of system
-a_max           = 0.24             # maximum acceleration
+a_max           = 0.17             # maximum acceleration
+a_min           = -0.05
 N               = 9             # MPC Solution Horizon
 desired_dist    = .5           # Desired following distance in meters
+DECEL_SCALE     = 4
+DIST_WEIGHT     = 100   # 200
+VEL_WEIGHT      = 100
+INPUT_WEIGHT    = 1
 
 # Initialize aPrev for t=0
 aPrev           = [0.0,0.0]
@@ -72,7 +77,7 @@ for i = 1:N
         @NLconstraint(mdl, rel_vel[i+1] == rel_vel[i] + (- aPrev[i] * dt)        )
         @NLconstraint(mdl, rel_psi[i+1] == rel_psi[i] + dt * (vel[i]/L_b * sin(bta[i]) ) )
         #end dynamics
-        @constraint(mdl, -a_max <= a[i] <= a_max)
+        @constraint(mdl, a_min <= a[i] <= a_max)
 
     else
         # add constraints (dynamics)
@@ -83,12 +88,12 @@ for i = 1:N
         @NLconstraint(mdl, rel_vel[i+1] == rel_vel[i] + (- a[i] * dt)        )
         @NLconstraint(mdl, rel_psi[i+1] == rel_psi[i] + dt * (vel[i]/L_b * sin(bta[i]) ) )
         #end dynamics
-        @constraint(mdl, -a_max <= a[i] <= a_max)
+        @constraint(mdl, a_min <= a[i] <= a_max)
     end
 end
 
 # Add objective	
-@NLobjective(mdl, Min, sum(200*(rel_d[i]-desired_dist)^2+ a[i]^2 for i=1:N))
+@NLobjective(mdl, Min, sum(DIST_WEIGHT*(rel_d[i]-desired_dist)^2 + INPUT_WEIGHT*a[i]^2 + VEL_WEIGHT*(rel_vel[i])^2  for i=1:N))
 ###########################################
 
 ###########################################
@@ -157,16 +162,17 @@ function main()
         
         # Adjust output to PWMs using system ID values
         if a_sol > 0
-            loginfo(a_sol)
+            #loginfo(a_sol)
             motor_pwm = (a_sol+0.1570*getvalue(vel0))/0.003050+1500
-            loginfo(motor_pwm)
+            #loginfo(motor_pwm)
             #use acceleration model
-		else
-			motor_pwm = (a_sol+0.1064*getvalue(vel0))/0.003297+1500
-			#motor_pwm = motor_pwm*0.15 #use deceleration model
-		end
+        else
+            motor_pwm = 1500 - DECEL_SCALE*(-a_sol+0.1570*getvalue(vel0))/0.003050
+            #motor_pwm = (a_sol+0.1064*getvalue(vel0))/0.003297+1500
+            #motor_pwm = motor_pwm*0.5 #use deceleration model
+        end
 		
-		servo_pwm = (d_fsol - 1.3784)/-0.00089358 # relationship in radians			(steer-0.4919)/(-3.1882*10^-4)
+	servo_pwm = (d_fsol - 1.3784)/-0.00089358 # relationship in radians			(steer-0.4919)/(-3.1882*10^-4)
 		
 
         ######### PRINTOUT FOR DEBUG #######
@@ -175,8 +181,8 @@ function main()
         
         ######### SAFETY LIMITS FOR TESTING #######
         if dbg == 1
-            if motor_pwm > 1620
-                motor_pwm = 1620
+            if motor_pwm > 1600
+                motor_pwm = 1600
             end
             if motor_pwm < 1000
                 motor_pwm = 1000

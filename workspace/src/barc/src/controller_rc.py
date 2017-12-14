@@ -26,9 +26,9 @@ import rospy
 import random
 
 def rc_inputs_callback(data):
-#    global throttle, steering
-#    throttle = data.motor
-#    steering = data.servo
+    global throttle, steering
+    throttle = data.motor
+    steering = data.servo
     pass
 
 def main_auto():
@@ -66,13 +66,13 @@ def main_auto():
         #    if throttle < 1400.0:
         #        throttle = 1400.0
         #throttle -= 4
-        if throttle < 1400.0:
-            throttle = 1400.0
-        for i in range(0,8):
-            ecu_cmd = ECU(throttle, steering)
-            rospy.loginfo(str(ecu_cmd.motor) + " " + str(ecu_cmd.servo))
-            nh.publish(ecu_cmd)
-            rate.sleep()
+        #if throttle < 1400.0:
+        #    throttle = 1400.0
+        #for i in range(0,8):
+        ecu_cmd = ECU(throttle, steering)
+        rospy.loginfo(str(ecu_cmd.motor) + " " + str(ecu_cmd.servo))
+        nh.publish(ecu_cmd)
+        rate.sleep()
 
 #############################################################
 if __name__ == '__main__':

@@ -67,14 +67,23 @@ set(simulator_CONFIG_INCLUDED TRUE)
 
 # set variables for source/devel/install prefixes
 if("TRUE" STREQUAL "TRUE")
+<<<<<<< HEAD
   set(simulator_SOURCE_PREFIX /home/odroid/barc/workspace/src/simulator)
   set(simulator_DEVEL_PREFIX /home/odroid/barc/workspace/devel)
+=======
+  set(simulator_SOURCE_PREFIX /home/heyin/barc/workspace/src/simulator)
+  set(simulator_DEVEL_PREFIX /home/heyin/barc/workspace/devel)
+>>>>>>> 7747ef15b6d1279a89cd10799f202a75fc3e3ab6
   set(simulator_INSTALL_PREFIX "")
   set(simulator_PREFIX ${simulator_DEVEL_PREFIX})
 else()
   set(simulator_SOURCE_PREFIX "")
   set(simulator_DEVEL_PREFIX "")
+<<<<<<< HEAD
   set(simulator_INSTALL_PREFIX /home/odroid/barc/workspace/install)
+=======
+  set(simulator_INSTALL_PREFIX /home/heyin/barc/workspace/install)
+>>>>>>> 7747ef15b6d1279a89cd10799f202a75fc3e3ab6
   set(simulator_PREFIX ${simulator_INSTALL_PREFIX})
 endif()
 
@@ -91,9 +100,15 @@ endif()
 # flag project as catkin-based to distinguish if a find_package()-ed project is a catkin project
 set(simulator_FOUND_CATKIN_PROJECT TRUE)
 
+<<<<<<< HEAD
 if(NOT "/home/odroid/barc/workspace/devel/include " STREQUAL " ")
   set(simulator_INCLUDE_DIRS "")
   set(_include_dirs "/home/odroid/barc/workspace/devel/include")
+=======
+if(NOT "/home/heyin/barc/workspace/devel/include " STREQUAL " ")
+  set(simulator_INCLUDE_DIRS "")
+  set(_include_dirs "/home/heyin/barc/workspace/devel/include")
+>>>>>>> 7747ef15b6d1279a89cd10799f202a75fc3e3ab6
   foreach(idir ${_include_dirs})
     if(IS_ABSOLUTE ${idir} AND IS_DIRECTORY ${idir})
       set(include ${idir})
@@ -103,7 +118,11 @@ if(NOT "/home/odroid/barc/workspace/devel/include " STREQUAL " ")
         message(FATAL_ERROR "Project 'simulator' specifies '${idir}' as an include dir, which is not found.  It does not exist in '${include}'.  Ask the maintainer 'BARC team <jon.gonzales@berkeley.edu>' to fix it.")
       endif()
     else()
+<<<<<<< HEAD
       message(FATAL_ERROR "Project 'simulator' specifies '${idir}' as an include dir, which is not found.  It does neither exist as an absolute directory nor in '/home/odroid/barc/workspace/src/simulator/${idir}'.  Ask the maintainer 'BARC team <jon.gonzales@berkeley.edu>' to fix it.")
+=======
+      message(FATAL_ERROR "Project 'simulator' specifies '${idir}' as an include dir, which is not found.  It does neither exist as an absolute directory nor in '/home/heyin/barc/workspace/src/simulator/${idir}'.  Ask the maintainer 'BARC team <jon.gonzales@berkeley.edu>' to fix it.")
+>>>>>>> 7747ef15b6d1279a89cd10799f202a75fc3e3ab6
     endif()
     _list_append_unique(simulator_INCLUDE_DIRS ${include})
   endforeach()
@@ -122,7 +141,11 @@ foreach(library ${libraries})
     set(lib_path "")
     set(lib "${library}-NOTFOUND")
     # since the path where the library is found is returned we have to iterate over the paths manually
+<<<<<<< HEAD
     foreach(path /home/odroid/barc/workspace/devel/lib;/home/odroid/barc/workspace/devel/lib;/opt/ros/kinetic/lib)
+=======
+    foreach(path /home/heyin/barc/workspace/devel/lib;/home/heyin/barc/workspace/devel/lib;/opt/ros/kinetic/lib)
+>>>>>>> 7747ef15b6d1279a89cd10799f202a75fc3e3ab6
       find_library(lib ${library}
         PATHS ${path}
         NO_DEFAULT_PATH NO_CMAKE_FIND_ROOT_PATH)

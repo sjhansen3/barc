@@ -162,12 +162,14 @@ barc::ECU ecu;
 barc::ECU rc_inputs;
 barc::Encoder encoder;
 barc::Ultrasound ultrasound;
+//barc::ECU arduino_outputs;
 
 ros::NodeHandle nh;
 
 ros::Publisher pub_encoder("encoder", &encoder);
 ros::Publisher pub_rc_inputs("rc_inputs", &rc_inputs);
 ros::Publisher pub_ultrasound("ultrasound", &ultrasound);
+//ros::Publisher pub_arduino_outputs("arduino_outputs", &arduino_outputs);
 ros::Subscriber<barc::ECU> sub_ecu("ecu_pwm", ecuCallback);
 
 // Set up ultrasound sensors
@@ -175,13 +177,15 @@ ros::Subscriber<barc::ECU> sub_ecu("ecu_pwm", ecuCallback);
 // PW = pulse width modulation
 // LV not sure
 int ultrasound_pin = 12;   // check which arduino pins support PWM
+int ultrasound2_pin = 13;
 // create a sonar sensor object named us_fr
 // three arguments: pin number, communication style (e.g. PWM, TX RX, Analog), ???
 // optional fouth argument: filter type (e.g. BEST, MEDIAN)
-Maxbotix us_fr(ultrasound_pin, Maxbotix::PW, Maxbotix::LV); // front
+//Maxbotix us_fr(ultrasound_pin, Maxbotix::PW, Maxbotix::LV); // front
 
 // use a type of filter on the data you receive
-//Maxbotix rangeSensorPW(8, Maxbotix::PW, Maxbotix::LV, Maxbotix::BEST);
+Maxbotix us_fr(ultrasound_pin, Maxbotix::PW, Maxbotix::LV);
+Maxbotix us_fl(ultrasound2_pin, Maxbotix::PW, Maxbotix::LV);
 //Maxbotix rangeSensorTX(6, Maxbotix::TX, Maxbotix::LV, Maxbotix::MEDIAN);
 
 /**************************************************************************
@@ -201,6 +205,7 @@ void setup()
   nh.advertise(pub_encoder);
   nh.advertise(pub_rc_inputs);
   nh.advertise(pub_ultrasound);
+//  nh.advertise(pub_arduino_outputs);
   nh.subscribe(sub_ecu);
 
   // Arming ESC, 1 sec delay for arming and ROS
@@ -241,14 +246,15 @@ void loop() {
     rc_inputs.motor = car.getRCThrottle();
     rc_inputs.servo = car.getRCSteering();
     pub_rc_inputs.publish(&rc_inputs);
-
+	
+//	pub_arduino_outputs.publish(&arduino_outputs);
     // get ultrasound readings
     ultrasound.front = us_fr.getRange();
     //ultrasound.back = us_bk.getRange();
-    //ultrasound.right = us_rt.getRange();
+    ultrasound.right = us_fl.getRange();//us_rt.getRange();  
     //ultrasound.left = us_lf.getRange();
     pub_ultrasound.publish(&ultrasound);
-
+	
     t0 = millis();
   }
 
@@ -300,6 +306,8 @@ void Car::armActuators() {
 }
 
 void Car::writeToActuators(const barc::ECU& ecu) {
+//  arduino_outputs.motor = saturateMotor(ecu.motor);
+//  arduino_outputs.servo = saturateServo(ecu.servo);
   motor.writeMicroseconds( (uint16_t) saturateMotor( ecu.motor ) );
   steering.writeMicroseconds( (uint16_t) saturateServo( ecu.servo ) );
 }

@@ -14,7 +14,7 @@ using PyPlot
 L_a             = 0.125         # distance from CoG to front axel
 L_b             = 0.125         # distance from CoG to rear axel
 dt              = 0.1           # time step of system
-a_max           = 1             # maximum acceleration
+a_max           = 0.24             # maximum acceleration
 N               = 9             # MPC Solution Horizon
 desired_dist    = 1           # Desired following distance in meters
 ###########################################
@@ -53,7 +53,7 @@ for i = 1:N
 end
 
 # Add objective
-@NLobjective(mdl, Min, sum(100*(rel_d[i]-desired_dist)^2+ a[i]^2 for i=1:N))
+@NLobjective(mdl, Min, sum(200*(rel_d[i]-desired_dist)^2+ a[i]^2 for i=1:N))
 #@NLobjective(mdl, Min, (rel_d[1]-desired_dist)^2 + (rel_d[2]-desired_dist)^2 + (rel_d[3]-desired_dist)^2 + (rel_d[4]-desired_dist)^2 + (rel_d[5]-desired_dist)^2)#brute force #sum(obj))	#instead of summing the array at the end, just summing in the for loop
 ###########################################
 
@@ -156,7 +156,7 @@ end
 function propigate_states(prev_vel,prev_usdist, accl_cmd,dt)
     #println("acceleration",accl_cmd,"prev_vel",prev_vel)    
     car_vel = prev_vel+accl_cmd*dt
-    obj_vel = 1 #assume constant 1 m/s velocity of other car
+    obj_vel = .5 #assume constant 1 m/s velocity of other car
     obj_acc = 0 #no acceleration
 
     us_rate = obj_vel-car_vel #negative moving towards the other car

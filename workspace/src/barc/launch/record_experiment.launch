@@ -24,6 +24,7 @@
     
     <!-- RECORD -->
     <node pkg="barc" type="record_experiment.py" name="record_experiment" output="screen">
+<<<<<<< HEAD
         <param name="experiment_name" value="$(arg id)" /> 
         <param name="camera_on" value="True" />
     </node>
@@ -33,5 +34,14 @@
 
 	<node pkg="lab4" type="AccelerationModelID.py" name="Model_ID">    
 	</node>
+=======
+        <param name="experiment_name" value="$(arg id)" />
+        <param name="camera_on" value="false" />
+    </node>
+
+    <!-- EXPERIMENT-->
+    <node pkg="lab4" type="controllerPID.py" name="CorneringStiffnessTest">
+    </node>
+>>>>>>> 7747ef15b6d1279a89cd10799f202a75fc3e3ab6
 
 </launch>

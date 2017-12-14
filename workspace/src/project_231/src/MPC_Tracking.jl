@@ -57,8 +57,8 @@ mdl = Model(solver = IpoptSolver())
 # updated because it is a constraint on the variable, which is updated with
 # the state callback function
 @NLparameter(mdl, vel0     == 0 ); @NLconstraint(mdl, vel[1]     == vel0    );
-@NLparameter(mdl, rel_d0   == 1 ); @NLconstraint(mdl, rel_d[1]   == rel_d0  );
-@NLparameter(mdl, rel_vel0 == 1 ); @NLconstraint(mdl, rel_vel[1] == rel_vel0);
+@NLparameter(mdl, rel_d0   == 0 ); @NLconstraint(mdl, rel_d[1]   == rel_d0  );
+@NLparameter(mdl, rel_vel0 == 0 ); @NLconstraint(mdl, rel_vel[1] == rel_vel0);
 @NLparameter(mdl, rel_psi0 == 0 ); @NLconstraint(mdl, rel_psi[1] == rel_psi0);
 @NLexpression(mdl, bta[i = 1:N], atan( L_a / (L_a + L_b) * tan(d_f[i]) ) )
 
@@ -76,6 +76,8 @@ for i = 1:N
 
     else
         # add constraints (dynamics)
+    # velocity should always be positive
+    @NLconstraint(mdl, vel[i+1]     >= 0                                        )
         @NLconstraint(mdl, vel[i+1]     == vel[i]     + dt * a[i]                   )
         @NLconstraint(mdl, rel_d[i+1]   == rel_d[i]   + rel_vel[i] * dt             )
         @NLconstraint(mdl, rel_vel[i+1] == rel_vel[i] + (- a[i] * dt)        )
@@ -85,7 +87,7 @@ for i = 1:N
     end
 end
 
-# Add objective
+# Add objective	
 @NLobjective(mdl, Min, sum(200*(rel_d[i]-desired_dist)^2+ a[i]^2 for i=1:N))
 ###########################################
 
@@ -161,7 +163,7 @@ function main()
             #use acceleration model
 		else
 			motor_pwm = (a_sol+0.1064*getvalue(vel0))/0.003297+1500
-			#use deceleration model
+			#motor_pwm = motor_pwm*0.15 #use deceleration model
 		end
 		
 		servo_pwm = (d_fsol - 1.3784)/-0.00089358 # relationship in radians			(steer-0.4919)/(-3.1882*10^-4)
@@ -173,11 +175,11 @@ function main()
         
         ######### SAFETY LIMITS FOR TESTING #######
         if dbg == 1
-            if motor_pwm > 1580
-                motor_pwm = 1580
+            if motor_pwm > 1620
+                motor_pwm = 1620
             end
-            if motor_pwm < 1200
-                motor_pwm = 1200
+            if motor_pwm < 1000
+                motor_pwm = 1000
             end
             if servo_pwm > 1600
                 servo_pwm = 1600

@@ -23,6 +23,9 @@ class CarState():
 		
 		self.obj_psi = 0 # object meters offset from centerline
 		
+		self.us_mv_avg = [0.0, 0.0, 0.0]
+		self.avg_iter = 0
+        
 		self.ROS_RATE = 10	#Hz
 		self.RADIUS = .05	#meters
 
@@ -49,6 +52,15 @@ class CarState():
 		# uses curve fit to find distance from the ultrasound value
 		
 		distance = 0.01103*us_data.right + 0.04001
+        
+		#create a moving average to smooth out noise with ultrasound
+		self.us_mv_avg[self.avg_iter] = distance
+		self.avg_iter += 1
+
+		if self.avg_iter >= len(self.us_mv_avg):
+			self.avg_iter = 0
+
+		distance = sum(self.us_mv_avg)/len(self.us_mv_avg)  #averages last 3 samples
 		# take derivatives to find rate of us distance change
 		rate = (distance - self.us_dist) / delta_time
 		accl = (rate - self.us_rate) / delta_time

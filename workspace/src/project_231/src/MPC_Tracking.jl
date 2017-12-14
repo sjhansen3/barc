@@ -28,9 +28,12 @@ dbg = 1
 L_a             = 0.125         # distance from CoG to front axel
 L_b             = 0.125         # distance from CoG to rear axel
 dt              = 0.1           # time step of system
-a_max           = 1             # maximum acceleration
-N               = 5             # MPC Solution Horizon
+a_max           = 0.24             # maximum acceleration
+N               = 9             # MPC Solution Horizon
 desired_dist    = .5           # Desired following distance in meters
+
+# Initialize aPrev for t=0
+aPrev           = [0.0,0.0]
 ###########################################
 
 ###########################################
@@ -60,18 +63,30 @@ mdl = Model(solver = IpoptSolver())
 @NLexpression(mdl, bta[i = 1:N], atan( L_a / (L_a + L_b) * tan(d_f[i]) ) )
 
 # Add constraints for each timestep
+delay = 2
 for i = 1:N
-    # add constraints (dynamics)
-    @NLconstraint(mdl, vel[i+1]     == vel[i]     + dt * a[i]                   )
-    @NLconstraint(mdl, rel_d[i+1]   == rel_d[i]   + rel_vel[i] * dt             )
-    @NLconstraint(mdl, rel_vel[i+1] == rel_vel[i] + (vel[i] - a[i] * dt)        )
-    @NLconstraint(mdl, rel_psi[i+1] == rel_psi[i] + dt * (vel[i]/L_b * sin(bta[i]) ) )
-    #end dynamics
-    @constraint(mdl, -a_max <= a[i] <= a_max)
+    if i<=delay
+        # add constraints for delay steps
+        @NLconstraint(mdl, vel[i+1]     == vel[i]     + dt * aPrev[i]                   )
+        @NLconstraint(mdl, rel_d[i+1]   == rel_d[i]   + rel_vel[i] * dt             )
+        @NLconstraint(mdl, rel_vel[i+1] == rel_vel[i] + (- aPrev[i] * dt)        )
+        @NLconstraint(mdl, rel_psi[i+1] == rel_psi[i] + dt * (vel[i]/L_b * sin(bta[i]) ) )
+        #end dynamics
+        @constraint(mdl, -a_max <= a[i] <= a_max)
+
+    else
+        # add constraints (dynamics)
+        @NLconstraint(mdl, vel[i+1]     == vel[i]     + dt * a[i]                   )
+        @NLconstraint(mdl, rel_d[i+1]   == rel_d[i]   + rel_vel[i] * dt             )
+        @NLconstraint(mdl, rel_vel[i+1] == rel_vel[i] + (- a[i] * dt)        )
+        @NLconstraint(mdl, rel_psi[i+1] == rel_psi[i] + dt * (vel[i]/L_b * sin(bta[i]) ) )
+        #end dynamics
+        @constraint(mdl, -a_max <= a[i] <= a_max)
+    end
 end
 
 # Add objective
-@NLobjective(mdl, Min, (rel_d[1]-desired_dist)^2 + (rel_d[2]-desired_dist)^2 + (rel_d[3]-desired_dist)^2 + (rel_d[4]-desired_dist)^2 + (rel_d[5]-desired_dist)^2)#brute force #sum(obj))	#instead of summing the array at the end, just summing in the for loop
+@NLobjective(mdl, Min, sum(200*(rel_d[i]-desired_dist)^2+ a[i]^2 for i=1:N))
 ###########################################
 
 ###########################################
@@ -83,9 +98,13 @@ loginfo("Model Creation complete, starting initial solve!")
 solve(mdl)
 #redirect_stdout(TT)
 
-a_sol = getvalue(a[1])
-d_fsol = getvalue(d_f[1])
+a_sol = getvalue(a[1+delay])
+d_fsol = getvalue(d_f[1+delay])
 loginfo("INITIAL Solution Found")
+
+aPrev[1] = aPrev[2]
+aPrev[2] = a_sol
+#btaPrev = 
 ###########################################
 
 ###########################################
@@ -125,9 +144,9 @@ function main()
 
         # Get the optimal inputs
         if status == :Optimal
-            loginfo("OPTIMAL SOLUTION FOUND")
-            a_sol  = getvalue( a[1]   )
-            d_fsol = getvalue( d_f[1] )
+            #loginfo("OPTIMAL SOLUTION FOUND")
+            a_sol  = getvalue( a[1+delay]   )
+            d_fsol = getvalue( d_f[1+delay] )
         else
             loginfo("SOLUTION IS NONOPTIMAL")
             a_sol  = 0.0
@@ -135,11 +154,13 @@ function main()
         end
         
         # Adjust output to PWMs using system ID values
-		if a_sol > 0
-			motor_pwm = (a_sol-0.1570*getvalue(vel0))/0.003050+1500
-			#use acceleration model
+        if a_sol > 0
+            loginfo(a_sol)
+            motor_pwm = (a_sol+0.1570*getvalue(vel0))/0.003050+1500
+            loginfo(motor_pwm)
+            #use acceleration model
 		else
-			motor_pwm = (a_sol-0.1064*getvalue(vel0))/0.003297+1500
+			motor_pwm = (a_sol+0.1064*getvalue(vel0))/0.003297+1500
 			#use deceleration model
 		end
 		
@@ -147,7 +168,7 @@ function main()
 		
 
         ######### PRINTOUT FOR DEBUG #######
-        loginfo(@sprintf("US: %.3f\t rel_vel; %.3f\t MOTOR: %.3f \tSERVO: %.3f\ta_sol: %.3f\td_fsol: %.3f", us_dist, rel_vel, motor_pwm, servo_pwm, a_sol, d_fsol)) #"a_sol: " * string(a_sol) * "\td_fsol: " * string(d_fsol))
+        loginfo(@sprintf("US: %.3f\trel_vel; %.3f\tMOTOR: %.3f \tSERVO: %.3f\ta_sol: %.3f\td_fsol: %.3f", us_dist, rel_vel, motor_pwm, servo_pwm, a_sol, d_fsol)) #"a_sol: " * string(a_sol) * "\td_fsol: " * string(d_fsol))
         #loginfo(#"MOTOR: " * string(motor_pwm) * "\tSERVO: " * string(servo_pwm))
         
         ######### SAFETY LIMITS FOR TESTING #######
@@ -155,19 +176,20 @@ function main()
             if motor_pwm > 1580
                 motor_pwm = 1580
             end
-            
             if motor_pwm < 1200
                 motor_pwm = 1200
             end
-        
             if servo_pwm > 1600
                 servo_pwm = 1600
             end
-
             if servo_pwm < 1400
                 servo_pwm = 1400
             end
         end
+
+        aPrev[1] = aPrev[2]
+        aPrev[2] = a_sol
+        #btaPrev = 
 
         # Cast the command to ECU message
 		cmd = ECU(motor_pwm,servo_pwm)
